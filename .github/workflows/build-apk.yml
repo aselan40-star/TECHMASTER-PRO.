@@ -1,0 +1,55 @@
+name: Build TechMaster Pro Release APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Ensure Android platform files exist
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create . --platforms=android --org com.techmaster.pro --project-name techmaster_pro
+          fi
+
+      - name: Ensure INTERNET permission in Release AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ] && ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+            sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <application/' "$MANIFEST"
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Release APK
+        run: flutter build apk --release
+
+      - name: Rename APK for WhatsApp sharing
+        run: cp build/app/outputs/flutter-apk/app-release.apk TechMaster-Pro-release.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TechMaster-Pro-APK
+          path: TechMaster-Pro-release.apk
+          retention-days: 30
